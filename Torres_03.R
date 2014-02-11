@@ -66,6 +66,6 @@ tot.sigs<-apply(tstatistics, 1, test)
 tot.sigs
 
 #7
+system.time(tstatistics<-apply(array1, 3, regress.t))
 registerDoMC(cores=2)
-system.time(tstatistics<-apply(array1, 3, regress.t, .parallel=TRUE))
-
+system.time(tstatistics2<-apply(array1, 3, regress.t, .parallel=TRUE))
