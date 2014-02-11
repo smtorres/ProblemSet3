@@ -1,4 +1,9 @@
 ##SAMPLING DISTRIBUTIONS AND P-VALUES
+install.packages(c("plyr", "doMC", "multicore", "foreach"))
+library(plyr)
+library(doMC)
+library(multicore)
+library(foreach)
 rm(list=ls())
 #1
 array1<-array(runif(100000), c(20,5,1000))
@@ -27,4 +32,26 @@ regress<-function(x){
   return(coefs)
 }
 coefficients<-t(apply(array1, 3, regress))
-coefficients
+dim(coefficients)
+colnames(coefficients)<- c("Alpha", "Beta 1", "Beta 2", "Beta 3", "Beta 4", "Beta 5")
+
+#4
+#Density plots
+dens<-function(x,y){
+  z<-sample(1:6, 1)
+  plot(density(x), col=z, main="Density plots")
+}
+par(mfrow=c(2,3)) 
+apply(coefficients, 2, FUN=dens, y=c(2,3,4,5,6,7))
+
+#5
+#t-statistics
+regress.t<-function(x){
+  Y<-yvalues(x)
+  reg<-lm(Y ~ x)
+  summs<-summary(reg)$coefficients
+  coefst<-matrix(c(summs[1,3], summs[2,3], summs[3,3], summs[4,3], summs[5,3], summs[6,3]), nrow=1)
+  return(coefst)
+}
+tstatistics<-t(apply(array1, 3, regress.t))
+
