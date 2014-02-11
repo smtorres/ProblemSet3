@@ -1,5 +1,4 @@
 ##SAMPLING DISTRIBUTIONS AND P-VALUES
-install.packages(c("plyr", "doMC", "multicore", "foreach"))
 library(plyr)
 library(doMC)
 library(multicore)
@@ -54,4 +53,19 @@ regress.t<-function(x){
   return(coefst)
 }
 tstatistics<-t(apply(array1, 3, regress.t))
+tstatistics
+#6
+#For the 1,000 regressions, calculate how many t-statistics are statistically “significant” (p.05)
+#for each variable. (Make sure you use the right degrees of freedom). Discuss.
+tvalue<-qt(.975, 14)
+test<-function(x){
+  sigs<-ifelse(abs(x)>tvalue,1,0)
+  num.sigs<-sum(sigs)
+}
+tot.sigs<-apply(tstatistics, 1, test)
+tot.sigs
+
+#7
+registerDoMC(cores=2)
+system.time(tstatistics<-apply(array1, 3, regress.t, .parallel=TRUE))
 
