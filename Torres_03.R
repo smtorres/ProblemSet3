@@ -5,20 +5,21 @@ library(multicore)
 library(foreach)
 rm(list=ls())
 #1
-array1<-array(runif(100000), c(20,5,1000))
+
+array1<-array(rnorm(1000), c(20,5,1000))
 
 #2
 #Function that takes as an input a matrix and returns a vector with same number of rows
 #as the matrix containing the sum of the values times the coefficients of Beta and noise
 yvalues<-function(x) {
   Beta<-matrix(c(1,2,0,4,0), ncol=1)  #Coefficients matrix
-  noise<-matrix(rnorm(nrow(x)), ncol=1)  #Random noise (normally distributed)
+  #noise<-matrix(rnorm(nrow(x)), ncol=1)  #Random noise (normally distributed)
   matrix2<-x %*% Beta   #Cross product (product and sum of coefficients and values of X)
-  Y<-matrix2+noise  #Summation of previous sum plus noise
+  Y<-matrix2+(rnorm(length(matrix2))/10)  #Summation of previous sum plus noise
   return(Y)
 }
 vec1<-apply(array1, 3, FUN=yvalues) ##Apply the function to the 3rd dimension of the array
-
+vec1
 #3
 #Run 1,000 regressions across all of this simulated data. Have as the output a 1000 by 6
 #matrix of estimated regression coefficients.
@@ -36,12 +37,12 @@ colnames(coefficients)<- c("Alpha", "Beta 1", "Beta 2", "Beta 3", "Beta 4", "Bet
 
 #4
 #Density plots
-dens<-function(x,y){
-  z<-sample(1:6, 1)
+dens<-function(x){
+  z<-sample(1:10, 1)
   plot(density(x), col=z, main="Density plots")
 }
 par(mfrow=c(2,3)) 
-apply(coefficients, 2, FUN=dens, y=c(2,3,4,5,6,7))
+apply(coefficients, 2, FUN=dens)
 
 #5
 #t-statistics
@@ -57,15 +58,18 @@ tstatistics
 #6
 #For the 1,000 regressions, calculate how many t-statistics are statistically “significant” (p.05)
 #for each variable. (Make sure you use the right degrees of freedom). Discuss.
-tvalue<-qt(.975, 14)
 test<-function(x){
-  sigs<-ifelse(abs(x)>tvalue,1,0)
+  sigs<-ifelse(abs(x)>qt(.975,14),1,0)
   num.sigs<-sum(sigs)
+  return(num.sigs)
 }
-tot.sigs<-apply(tstatistics, 1, test)
+tot.sigs<-apply(tstatistics, 2, test)
 tot.sigs
-
+print("Number of significant coefficients per variable")
+print(paste("#Beta1***=", tot.sigs[1], "#Beta2***=", tot.sigs[2], "#Beta3***=", tot.sigs[3],
+            "#Beta4***=", tot.sigs[4], "#Beta5***=", tot.sigs[5], "#Beta6***=", tot.sigs[6]))
 #7
-system.time(tstatistics<-apply(array1, 3, regress.t))
-registerDoMC(cores=2)
-system.time(tstatistics2<-apply(array1, 3, regress.t, .parallel=TRUE))
+#system.time(tstatistics<-apply(array1, 3, regress.t))
+#registerDoMC(cores=2)
+#system.time(tstatistics2<-apply(array1, 3, regress.t, .parallel=TRUE))
+
