@@ -82,6 +82,7 @@ setwd("/Users/michelletorres/Dropbox/SEMESTER2/R-Programming/Problem Set 3/Probl
 outofstep <- read.table("incumbents.txt", header=TRUE, sep="")
 
 #Subset
+
 set.seed(29011999)
 attach(outofstep)
 rsample<- sample(1:6687, (length(x)/2)+0.5)
@@ -90,11 +91,60 @@ testing<-data.frame(outofstep[-rsample,])
 detach(outofstep)
 
 #MODELS
+#Remove missing values
+#Function "delete" that takes as input a dataset and deletes observations with missing values (if any) in the
+#variables difflog, midterm, seniority, inparty and unemployed. Returns the dataset without missing values.
+delete<-function(x){
+  a<-x[!is.na(x$difflog), ]
+  b<-a[!is.na(x$midterm), ]
+  c<-b[!is.na(x$seniority), ]
+  d<-c[!is.na(x$inparty), ]
+  e<-d[!is.na(x$unemployed), ]
+  f<-e[!is.na(x$voteshare), ]
+  return(f)
+}
+training<-delete(training)
+testing<-delete(testing)
+
 ##Model 1 (OLS)
 library(e1071, class)
 ols <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
 pred_ols<-predict(ols,newdata=testing)
 
+##MOodel 2
+ols2 <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
+pred_ols2<-predict(ols2,newdata=testing)
+##Model 3
+ols3 <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
+pred_ols3<-predict(ols3,newdata=testing)
 
-
+##BUILD MATRIX 
+models<-cbind(pred_ols, pred_ols2, pred_ols3)
+head(models)
+base<-rep(mean(testing$voteshare), length(pred_ols))
+head(base)
 ##FUNCTION
+Write a function that takes as arguments (1) a vector of “true” observed outcomes (y), (2) a
+matrix of predictions (P), and a vector of naive forecasts (r). The matrix should be organized
+so that each column represents a single forecasting model and the rows correspond with each
+observation being predicted.
+The function should output a matrix where each column corresponds with one of the above
+fit statistics, and each row corresponds to a model.
+
+fit.test<-function(y, P, r){
+  e<-apply(P, 2, function(x,z) {abs(x+z)}, z=y)
+  a<-apply(e, 2, function(x,z) {(x/abs(z))*100}, z=y)
+  b<-abs(r-y)
+  RMSE<-apply(e, 2, function(x,z){sqrt((sum(x^2)/length(z)))}, z=y)
+  MAD<-apply(e, 2, median)
+  RMSLE<- apply(P, 2, function(x,z){sqrt(sum((log(x+1)-log(z+1))^2)/length(z))},z=y)
+  MAPE<-apply(a, 2, function(x,z){sum(x)/length(z)}, z=y)
+  MEAPE<-apply(a, 2, median)
+  MRAE<-apply(e, 2, function(x,z){median(x/z)}, z=b)
+  output<- cbind(RMSE, MAD, RMSLE, MAPE, MEAPE, MRAE)
+  rownames(output)<-c("Model 1", "Model 2", "Model 3")
+  #colnames(output)<-c("RMSE", "MAD", "RMSLE", "MAPE", "MEAPE", "MRAE")
+  return(output)
+}
+
+fit.test(testing$voteshare, models, base)
