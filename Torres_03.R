@@ -69,7 +69,32 @@ print("Number of significant coefficients per variable")
 print(paste("#Beta1***=", tot.sigs[1], "#Beta2***=", tot.sigs[2], "#Beta3***=", tot.sigs[3],
             "#Beta4***=", tot.sigs[4], "#Beta5***=", tot.sigs[5], "#Beta6***=", tot.sigs[6]))
 #7
-#system.time(tstatistics<-apply(array1, 3, regress.t))
-#registerDoMC(cores=2)
-#system.time(tstatistics2<-apply(array1, 3, regress.t, .parallel=TRUE))
+registerDoMC(cores=2)
+system.time(aaply(array1, .margins=3, .fun=regress.t))
+system.time(aaply(array1, .margins=3, .fun=regress.t, .parallel=T))
+#There was no improvement regarding time execution. Actually, when using parallel processes
+# the time increases .79 seconds.
 
+
+## PART B
+#1
+setwd("/Users/michelletorres/Dropbox/SEMESTER2/R-Programming/Problem Set 3/ProblemSet3")
+outofstep <- read.table("incumbents.txt", header=TRUE, sep="")
+
+#Subset
+set.seed(29011999)
+attach(outofstep)
+rsample<- sample(1:6687, (length(x)/2)+0.5)
+training<-data.frame(outofstep[rsample,])
+testing<-data.frame(outofstep[-rsample,])
+detach(outofstep)
+
+#MODELS
+##Model 1 (OLS)
+library(e1071, class)
+ols <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
+pred_ols<-predict(ols,newdata=testing)
+
+
+
+##FUNCTION
