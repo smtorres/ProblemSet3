@@ -35,14 +35,16 @@ coefficients<-t(apply(array1, 3, regress))
 dim(coefficients)
 colnames(coefficients)<- c("Alpha", "Beta 1", "Beta 2", "Beta 3", "Beta 4", "Beta 5")
 
+
 #4
 #Density plots
-dens<-function(x){
+dens<-function(x,y){
   z<-sample(1:10, 1)
-  plot(density(x), col=z, main="Density plots")
+  plot(density(x), col=z, main= paste("Density plot of",y))
 }
 par(mfrow=c(2,3)) 
-apply(coefficients, 2, FUN=dens)
+apply(coefficients, 2, FUN=dens, y=x)
+#The sampling distribution of the coefficients tend to be normal.
 
 #5
 #t-statistics
@@ -68,6 +70,12 @@ tot.sigs
 print("Number of significant coefficients per variable")
 print(paste("#Beta1***=", tot.sigs[1], "#Beta2***=", tot.sigs[2], "#Beta3***=", tot.sigs[3],
             "#Beta4***=", tot.sigs[4], "#Beta5***=", tot.sigs[5], "#Beta6***=", tot.sigs[6]))
+#As we can see, the coefficients Beta, Beta and Beta are significant in most of the cases.
+#This is due to the fact that we built the dataset based on them (and not the other way).
+#However, the coefficients Beta and Beta seem to be significant in less than 5% of the samples.
+#This is due to the fact that they equal zero and therefore they are not impacting the structure
+#of the observations. Nevertheless, they sometimes appear significant as a result of the noise and sample.
+
 #7
 registerDoMC(cores=2)
 system.time(aaply(array1, .margins=3, .fun=regress.t))
@@ -91,7 +99,7 @@ testing<-data.frame(outofstep[-rsample,])
 detach(outofstep)
 
 #MODELS
-#Remove missing values
+
 #Function "delete" that takes as input a dataset and deletes observations with missing values (if any) in the
 #variables difflog, midterm, seniority, inparty and unemployed. Returns the dataset without missing values.
 delete<-function(x){
@@ -107,22 +115,52 @@ training<-delete(training)
 testing<-delete(testing)
 
 ##Model 1 (OLS)
+#Multivariate Ordinary Least Squares Regression
+#DV: Vote share
+#IV: Midterm, Seniority, Difflog, Inparty, Unemployed
 library(e1071, class)
+#Run the regression in the training dataset
 ols <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
+#Obtain the predicted values in the testing dataset based on the results from the model
 pred_ols<-predict(ols,newdata=testing)
 
-##MOodel 2
-ols2 <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
-pred_ols2<-predict(ols2,newdata=testing)
+##Model 2 (knn)
+#Apply K nearest neighbors method to predict the outcome (based on the approximation of
+#the observations in the testing dataset to others in the training set)
+#Keep only the variables relevant in the model:
+#Vector with the names of the relevant variables
+keeps <- c("midterm","seniority", "difflog", "inparty", "unemployed")
+#Keep and store in train_input and convert it to matrix
+train_input<-training[keeps]
+train_input<- as.matrix(train_input)
+#Keep and store in train_output and convert it to vector (DV)
+train_output<- training["voteshare"]
+train_output<- as.matrix(train_output)
+train_output<- as.vector(train_output)
+#Keep and store in test_input and convert it to matrix
+test_input<-testing[keeps]
+test_input<- as.matrix(test_input)
+#Run the model
+pred_knn <- knn(train_input, test_input, train_output, k=5)
+#Store predictions
+pred_knn<- as.numeric(pred_knn)
+
 ##Model 3
-ols3 <- with(training, lm(voteshare ~ midterm + seniority + difflog+inparty+ unemployed))
-pred_ols3<-predict(ols3,newdata=testing)
+##TREE ENSEMBLES
+#Load randomForest package
+library(randomForest)
+#Run randomForest with 500 trees
+forest<-randomForest(voteshare ~ midterm + seniority + difflog+inparty+ unemployed, data=training, nTree=500)
+#Store the predictions in pred_rf
+pred_rf <- predict(forest, newdata=testing, type='class')
 
 ##BUILD MATRIX 
-models<-cbind(pred_ols, pred_ols2, pred_ols3)
+models<-cbind(pred_ols, pred_knn, pred_rf)
 head(models)
 base<-rep(mean(testing$voteshare), length(pred_ols))
 head(base)
+
+
 ##FUNCTION
 Write a function that takes as arguments (1) a vector of “true” observed outcomes (y), (2) a
 matrix of predictions (P), and a vector of naive forecasts (r). The matrix should be organized
