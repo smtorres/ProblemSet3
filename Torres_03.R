@@ -13,9 +13,8 @@ array1<-array(rnorm(1000), c(20,5,1000))
 #as the matrix containing the sum of the values times the coefficients of Beta and noise
 yvalues<-function(x) {
   Beta<-matrix(c(1,2,0,4,0), ncol=1)  #Coefficients matrix
-  #noise<-matrix(rnorm(nrow(x)), ncol=1)  #Random noise (normally distributed)
   matrix2<-x %*% Beta   #Cross product (product and sum of coefficients and values of X)
-  Y<-matrix2+(rnorm(length(matrix2))/10)  #Summation of previous sum plus noise
+  Y<-matrix2+(rnorm(length(matrix2))/10)  #Plus noise
   return(Y)
 }
 vec1<-apply(array1, 3, FUN=yvalues) ##Apply the function to the 3rd dimension of the array
@@ -24,6 +23,10 @@ vec1
 #Run 1,000 regressions across all of this simulated data. Have as the output a 1000 by 6
 #matrix of estimated regression coefficients.
 
+#FUNCTION REGRESS
+#Takes a matrix with X values, calculates the outcome variable based on a given vector of covariates
+#by calling the function "yvalues" (see above). 
+#Then, runs regressions on these outcome variables and returns a matrix of coefficients
 regress<-function(x){
   Y<-yvalues(x)
   reg<-lm(Y ~ x)
@@ -38,13 +41,14 @@ colnames(coefficients)<- c("Alpha", "Beta 1", "Beta 2", "Beta 3", "Beta 4", "Bet
 
 #4
 #Density plots
-dens<-function(x,y){
+dens<-function(x){
   z<-sample(1:10, 1)
-  plot(density(x), col=z, main= paste("Density plot of",y))
+  plot(density(x), col=z, main="Density plot")
 }
 par(mfrow=c(2,3)) 
-apply(coefficients, 2, FUN=dens, y=x)
-#The sampling distribution of the coefficients tend to be normal.
+apply(coefficients, 2, FUN=dens)
+#The sampling distribution of the coefficients resembles the normal distribution. 
+#The coefficients were calculated based on variables and errors with normal distribution, and therefore perform the same way.
 
 #5
 #t-statistics
@@ -68,11 +72,11 @@ test<-function(x){
 tot.sigs<-apply(tstatistics, 2, test)
 tot.sigs
 print("Number of significant coefficients per variable")
-print(paste("#Beta1***=", tot.sigs[1], "#Beta2***=", tot.sigs[2], "#Beta3***=", tot.sigs[3],
-            "#Beta4***=", tot.sigs[4], "#Beta5***=", tot.sigs[5], "#Beta6***=", tot.sigs[6]))
-#As we can see, the coefficients Beta, Beta and Beta are significant in most of the cases.
+print(paste("#Beta0***=", tot.sigs[1], "#Beta1***=", tot.sigs[2], "#Beta2***=", tot.sigs[3],
+            "#Beta3***=", tot.sigs[4], "#Beta4***=", tot.sigs[5], "#Beta5***=", tot.sigs[6]))
+#As we can see, the coefficients Beta 1, Beta 2 and Beta 4 are significant in all of the cases.
 #This is due to the fact that we built the dataset based on them (and not the other way).
-#However, the coefficients Beta and Beta seem to be significant in less than 5% of the samples.
+#However, the coefficients Beta 3 and Beta 5 seem to be significant in approx 5% of the samples.
 #This is due to the fact that they equal zero and therefore they are not impacting the structure
 #of the observations. Nevertheless, they sometimes appear significant as a result of the noise and sample.
 
@@ -112,6 +116,8 @@ delete<-function(x){
   return(f)
 }
 training<-delete(training)
+training<-delete(training)
+testing<-delete(testing)
 testing<-delete(testing)
 
 ##Model 1 (OLS)
@@ -143,7 +149,7 @@ test_input<- as.matrix(test_input)
 #Run the model
 pred_knn <- knn(train_input, test_input, train_output, k=5)
 #Store predictions
-pred_knn<- as.numeric(pred_knn)
+pred_knn<- as.numeric(as.character(pred_knn))
 
 ##Model 3
 ##TREE ENSEMBLES
@@ -162,13 +168,12 @@ head(base)
 
 
 ##FUNCTION
-Write a function that takes as arguments (1) a vector of “true” observed outcomes (y), (2) a
-matrix of predictions (P), and a vector of naive forecasts (r). The matrix should be organized
-so that each column represents a single forecasting model and the rows correspond with each
-observation being predicted.
-The function should output a matrix where each column corresponds with one of the above
-fit statistics, and each row corresponds to a model.
-
+#1/2
+#Function that takes as an input:
+# y= a vector of observed values, 
+#P= a matrix containing columns with the predicted values of different models (each per column)
+# r= a base model to compare and obtain MRAE
+#The output is a matrix containing the statistics calculated per model
 fit.test<-function(y, P, r){
   e<-apply(P, 2, function(x,z) {abs(x+z)}, z=y)
   a<-apply(e, 2, function(x,z) {(x/abs(z))*100}, z=y)
@@ -185,4 +190,52 @@ fit.test<-function(y, P, r){
   return(output)
 }
 
+#3
+#Function that takes as an input:
+# y= a vector of observed values, 
+#P= a matrix containing columns with the predicted values of different models (each per column)
+# r= a base model to compare and obtain MRAE
+# statistics= the name of the statistic to compute. Default is rmse.
+#If r is not provided, the model calculates the rmae based on the value of the mode of y
+#The output is a vector with the statistic required per model
+
+fit.test.2<-function(y, P, r=NULL, statistics="rmse"){
+  e<-apply(P, 2, function(x,z) {abs(x+z)}, z=y)
+  a<-apply(e, 2, function(x,z) {(x/abs(z))*100}, z=y)
+  b<-abs(r-y)
+  RMSE<-apply(e, 2, function(x,z){sqrt((sum(x^2)/length(z)))}, z=y)
+  MAD<-apply(e, 2, median)
+  RMSLE<- apply(P, 2, function(x,z){sqrt(sum((log(x+1)-log(z+1))^2)/length(z))},z=y)
+  MAPE<-apply(a, 2, function(x,z){sum(x)/length(z)}, z=y)
+  MEAPE<-apply(a, 2, median)
+  output<- cbind(RMSE, MAD, RMSLE, MAPE, MEAPE)
+  rownames(output)<-c("Model 1", "Model 2", "Model 3")
+  if (statistics=="rmse") {return(output[,1])
+  } else if (statistics=="mad") {return(output[,2])
+  } else if (statistics=="rmsle") {return(output[,3])
+  } else if (statistics=="mape") {return(output[,4])
+  } else if (statistics=="meape") {return(output[,5])                              
+  } else if (statistics=="mrae") {
+    if (!is.null(r)) {
+      MRAE<-apply(e, 2, function(x,z){median(x/z)}, z=b)  
+      return(MRAE)
+    } else if (is.null(r)) {
+        uy <- unique(y)
+       r2<- uy[which.max(tabulate(match(y, uy)))]
+       b2<-abs(r2-y)
+       MRAE2<-apply(e, 2, function(x,z){median(x/z)}, z=b2)
+       print("Base model= Mode of Y")
+       return(MRAE2)
+      }      
+  } else {return(output)}
+}
+
+#4
 fit.test(testing$voteshare, models, base)
+fit.test.2(testing$voteshare, models, base, statistics="rmse")
+fit.test.2(testing$voteshare, models, base, statistics="mad")
+fit.test.2(testing$voteshare, models, base, statistics="rmsle")
+fit.test.2(testing$voteshare, models, base, statistics="mape")
+fit.test.2(testing$voteshare, models, base, statistics="meape")
+fit.test.2(testing$voteshare, models, base, statistics="mrae")
+fit.test.2(testing$voteshare, models, statistics="mrae")
